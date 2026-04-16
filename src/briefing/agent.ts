@@ -2,6 +2,13 @@ import "dotenv/config";
 
 import OpenAI from "openai";
 import type {
+  ChatCompletion,
+  ChatCompletionAssistantMessageParam,
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+  ChatCompletionToolMessageParam
+} from "openai/resources/chat/completions/completions.js";
+import type {
   FunctionTool,
   Response,
   ResponseFunctionToolCall,
@@ -123,7 +130,7 @@ async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpC
     }
   };
 
-  const tools: FunctionTool[] = [
+  const responseTools: FunctionTool[] = [
     {
       type: "function",
       name: "search_library",
@@ -155,8 +162,50 @@ async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpC
     }
   ];
 
-  let response: Response = await client.responses.create({
+  if (providerConfig.apiStyle === "chat") {
+    return runChatCompletionBriefing({
+      client,
+      model: providerConfig.model,
+      request,
+      toolHandlers,
+      usedBriefIds
+    });
+  }
+
+  return runResponsesBriefing({
+    client,
     model: providerConfig.model,
+    request,
+    toolHandlers,
+    tools: responseTools,
+    usedBriefIds
+  });
+}
+
+interface ToolHandlers {
+  search_library: (args: { query: string; limit?: number }) => Promise<unknown>;
+  read_briefing: (args: { id: string }) => Promise<unknown>;
+}
+
+interface ResponsesBriefingArgs {
+  client: OpenAI;
+  model: string;
+  request: BriefingRequest;
+  toolHandlers: ToolHandlers;
+  tools: FunctionTool[];
+  usedBriefIds: Set<string>;
+}
+
+async function runResponsesBriefing({
+  client,
+  model,
+  request,
+  toolHandlers,
+  tools,
+  usedBriefIds
+}: ResponsesBriefingArgs): Promise<BriefingResult> {
+  let response: Response = await client.responses.create({
+    model,
     reasoning: { effort: "medium" },
     tools,
     instructions: briefingInstructions(request),
@@ -207,11 +256,190 @@ async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpC
     }
 
     response = await client.responses.create({
-      model: providerConfig.model,
+      model,
       previous_response_id: response.id,
       tools,
       input: toolOutputs
     });
+  }
+}
+
+interface ChatBriefingArgs {
+  client: OpenAI;
+  model: string;
+  request: BriefingRequest;
+  toolHandlers: ToolHandlers;
+  usedBriefIds: Set<string>;
+}
+
+const TOOL_REQUIRED_REMINDER =
+  "You must call search_library before writing the briefing. Do not answer until you have used the available tools.";
+
+export interface ChatCompletionClientLike {
+  create(params: {
+    model: string;
+    messages: ChatCompletionMessageParam[];
+    tools: ChatCompletionTool[];
+    tool_choice: "auto" | "required";
+  }): Promise<ChatCompletion>;
+}
+
+function buildChatTools(): ChatCompletionTool[] {
+  return [
+    {
+      type: "function",
+      function: {
+        name: "search_library",
+        description: "Search the briefing library for relevant documents.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            query: { type: "string" },
+            limit: { type: "integer", minimum: 1, maximum: 8 }
+          },
+          required: ["query"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "read_briefing",
+        description: "Read one full briefing document by id.",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            id: { type: "string" }
+          },
+          required: ["id"]
+        }
+      }
+    }
+  ];
+}
+
+async function runChatCompletionBriefing({
+  client,
+  model,
+  request,
+  toolHandlers,
+  usedBriefIds
+}: ChatBriefingArgs): Promise<BriefingResult> {
+  const tools = buildChatTools();
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system", content: briefingInstructions(request) },
+    {
+      role: "user",
+      content: `Create a technical briefing about "${request.topic}". Search before answering.`
+    }
+  ];
+
+  return runChatCompletionBriefingLoop({
+    client: client.chat.completions,
+    model,
+    messages,
+    tools,
+    request,
+    toolHandlers,
+    usedBriefIds
+  });
+}
+
+interface ChatBriefingLoopArgs {
+  client: ChatCompletionClientLike;
+  model: string;
+  messages: ChatCompletionMessageParam[];
+  tools: ChatCompletionTool[];
+  request: BriefingRequest;
+  toolHandlers: ToolHandlers;
+  usedBriefIds: Set<string>;
+}
+
+export async function runChatCompletionBriefingLoop({
+  client,
+  model,
+  messages,
+  tools,
+  request,
+  toolHandlers,
+  usedBriefIds
+}: ChatBriefingLoopArgs): Promise<BriefingResult> {
+  let requiresInitialToolCall = true;
+
+  while (true) {
+    const completion: ChatCompletion = await client.create({
+      model,
+      messages,
+      tools,
+      tool_choice: requiresInitialToolCall ? "required" : "auto"
+    });
+
+    const message = completion.choices[0]?.message;
+
+    if (!message) {
+      throw new Error("The model response completed without a message.");
+    }
+
+    const assistantMessage: ChatCompletionAssistantMessageParam = {
+      role: "assistant",
+      content: message.content ?? null,
+      tool_calls: message.tool_calls
+    };
+    messages.push(assistantMessage);
+
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      if (usedBriefIds.size === 0) {
+        messages.push({
+          role: "user",
+          content: TOOL_REQUIRED_REMINDER
+        });
+        requiresInitialToolCall = true;
+        continue;
+      }
+
+      const markdown = message.content?.trim();
+
+      if (!markdown) {
+        throw new Error("The model response completed without tool calls or output text.");
+      }
+
+      return {
+        mode: "live",
+        markdown,
+        briefIds: [...usedBriefIds]
+      };
+    }
+
+    requiresInitialToolCall = false;
+
+    for (const toolCall of message.tool_calls) {
+      if (toolCall.type !== "function") {
+        continue;
+      }
+
+      const parsedArguments = JSON.parse(toolCall.function.arguments || "{}") as Record<string, unknown>;
+      const result =
+        toolCall.function.name === "search_library"
+          ? await toolHandlers.search_library({
+              query: String(parsedArguments.query ?? request.topic),
+              limit:
+                typeof parsedArguments.limit === "number"
+                  ? parsedArguments.limit
+                  : request.limit
+            })
+          : await toolHandlers.read_briefing({
+              id: String(parsedArguments.id ?? "")
+            });
+
+      const toolMessage: ChatCompletionToolMessageParam = {
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(result)
+      };
+      messages.push(toolMessage);
+    }
   }
 }
 

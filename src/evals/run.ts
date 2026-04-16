@@ -1,4 +1,5 @@
 import { generateBriefing } from "../briefing/agent.js";
+import { hasLiveModelConfig } from "../briefing/provider.js";
 import type { EvalResult } from "../briefing/types.js";
 import { scenarios } from "./dataset.js";
 import { scoreScenario } from "./scoring.js";
@@ -11,7 +12,7 @@ async function main(): Promise<void> {
       topic: scenario.topic,
       audience: scenario.audience,
       limit: 3,
-      live: Boolean(process.env.OPENAI_API_KEY)
+      live: hasLiveModelConfig()
     });
 
     const score = scoreScenario(briefing.markdown, scenario.expectedTerms);

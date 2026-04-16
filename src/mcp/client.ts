@@ -12,11 +12,19 @@ function projectRootFrom(moduleUrl: string): string {
   return path.resolve(path.dirname(filename), "..", "..");
 }
 
-function resolveServerCommand(moduleUrl: string): { command: string; args: string[] } {
+function isBuiltModule(moduleUrl: string): boolean {
+  const filename = fileURLToPath(moduleUrl);
+  return filename.includes(`${path.sep}dist${path.sep}`);
+}
+
+export function resolveServerCommand(
+  moduleUrl: string,
+  fileExists: (path: string) => boolean = existsSync
+): { command: string; args: string[] } {
   const root = projectRootFrom(moduleUrl);
   const distServer = path.join(root, "dist", "mcp", "server.js");
 
-  if (existsSync(distServer)) {
+  if (isBuiltModule(moduleUrl) && fileExists(distServer)) {
     return {
       command: process.execPath,
       args: [distServer]

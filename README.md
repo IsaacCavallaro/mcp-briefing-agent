@@ -2,10 +2,10 @@
 
 `mcp-briefing-agent` is a compact TypeScript repo for generating structured briefings with:
 
-- OpenAI Responses API or any OpenAI-compatible provider for agentic reasoning
+- OpenAI Responses API, Gemini, or an OpenAI-compatible provider for agentic reasoning
 - MCP server for context and tool boundaries
 - Lightweight eval harness for repeatable output checks
-- Clean CLI workflow that is easy to demo in a screen recording
+- Clean CLI workflow for local runs and quick iteration
 
 This is not another generic chatbot. It is a small, reviewable system that demonstrates how to compose model reasoning, tool use, and protocol-driven context into one coherent app.
 
@@ -18,7 +18,7 @@ user prompt
 CLI command
    |
    v
-OpenAI Responses API loop
+Model API loop
    |
    +--> function tool: search_library ------+
    |                                        |
@@ -40,7 +40,7 @@ The model never reaches directly into the data layer. It reasons over tool resul
 ```text
 src/
   briefing/
-    agent.ts        # Responses API loop and mock fallback
+    agent.ts        # Model loop for OpenAI, Gemini, and mock mode
     library.ts      # Sample briefing corpus and search logic
     types.ts        # Shared domain types
   evals/
@@ -69,6 +69,14 @@ cp .env.example .env
 
 3. Configure a provider in `.env`.
 
+Gemini free-tier setup:
+
+```env
+MODEL_PROVIDER=gemini
+MODEL_API_KEY=your_gemini_api_key
+MODEL_NAME=gemini-2.5-flash-lite
+```
+
 4. Run a live briefing.
 
 ```bash
@@ -87,8 +95,19 @@ If `--live` is not used, the repo falls back to deterministic mock mode so the a
 
 The project supports:
 
+- `MODEL_PROVIDER=gemini`
 - `MODEL_PROVIDER=openai`
 - `MODEL_PROVIDER=openai-compatible`
+
+Gemini setup:
+
+```env
+MODEL_PROVIDER=gemini
+MODEL_API_KEY=your_gemini_api_key
+MODEL_NAME=gemini-2.5-flash-lite
+```
+
+For Gemini, `MODEL_BASE_URL` is optional. If it is not set, the repo uses the Google OpenAI-compatible endpoint automatically.
 
 OpenAI setup:
 
@@ -118,6 +137,7 @@ npm run mcp
 npm run eval
 npm run test
 npm run build
+npm start         # run the compiled CLI after build
 ```
 
 ## Example Output Shape

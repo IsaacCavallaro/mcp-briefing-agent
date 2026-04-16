@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "TypeScript briefing agent that combines the OpenAI Responses API, an MCP server, and a lightweight eval harness.",
+  "description": "TypeScript briefing agent that combines model-driven tool use, an MCP server, and a lightweight eval harness.",
   "scripts": {
     "brief": "tsx src/cli.ts brief",
     "catalog": "tsx src/cli.ts catalog",

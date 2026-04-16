@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveProviderConfig } from "../src/briefing/provider.js";
+import { hasLiveModelConfig, resolveProviderConfig } from "../src/briefing/provider.js";
 
 function withEnv(
   values: Record<string, string | undefined>,
@@ -83,6 +83,44 @@ test("resolveProviderConfig rejects openai-compatible config without a base URL"
     },
     () => {
       assert.throws(() => resolveProviderConfig(), /MODEL_BASE_URL/);
+    }
+  );
+});
+
+test("resolveProviderConfig supports gemini", () => {
+  withEnv(
+    {
+      MODEL_PROVIDER: "gemini",
+      MODEL_API_KEY: "gemini-test-key",
+      MODEL_BASE_URL: undefined,
+      MODEL_NAME: "gemini-2.5-flash-lite",
+      GEMINI_API_KEY: undefined,
+      GEMINI_MODEL: undefined
+    },
+    () => {
+      const result = resolveProviderConfig();
+      assert.equal(result.provider, "gemini");
+      assert.equal(result.apiKey, "gemini-test-key");
+      assert.equal(result.model, "gemini-2.5-flash-lite");
+      assert.equal(
+        result.baseURL,
+        "https://generativelanguage.googleapis.com/v1beta/openai/"
+      );
+      assert.equal(result.apiStyle, "chat");
+    }
+  );
+});
+
+test("hasLiveModelConfig detects gemini keys", () => {
+  withEnv(
+    {
+      MODEL_PROVIDER: "gemini",
+      MODEL_API_KEY: undefined,
+      GEMINI_API_KEY: "gemini-test-key",
+      MODEL_BASE_URL: undefined
+    },
+    () => {
+      assert.equal(hasLiveModelConfig(), true);
     }
   );
 });
