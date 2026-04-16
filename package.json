@@ -1,0 +1,31 @@
+{
+  "name": "mcp-briefing-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TypeScript briefing agent that combines the OpenAI Responses API, an MCP server, and a lightweight eval harness.",
+  "scripts": {
+    "brief": "tsx src/cli.ts brief",
+    "catalog": "tsx src/cli.ts catalog",
+    "mcp": "tsx src/mcp/server.ts",
+    "eval": "tsx src/evals/run.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js brief",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "dotenv": "^17.2.1",
+    "openai": "^5.12.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
