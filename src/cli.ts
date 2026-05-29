@@ -1,5 +1,7 @@
 import { generateBriefing } from "./briefing/agent.js";
+import type { BriefingRequest } from "./briefing/types.js";
 import { BriefingMcpClient } from "./mcp/client.js";
+import { writeBriefingRun } from "./observability/run-history.js";
 
 function readFlag(flag: string, args: string[], fallback: string): string {
   const index = args.indexOf(flag);
@@ -13,21 +15,32 @@ function readIntFlag(flag: string, args: string[], fallback: number): number {
 }
 
 async function runBrief(args: string[]): Promise<void> {
-  const topic = readFlag("--topic", args, "Why evals matter for agent apps");
-  const audience = readFlag("--audience", args, "technical team");
-  const limit = readIntFlag("--limit", args, 3);
-
-  const briefing = await generateBriefing({
-    topic,
-    audience,
-    limit,
+  const request: BriefingRequest = {
+    topic: readFlag("--topic", args, "Why evals matter for agent apps"),
+    audience: readFlag("--audience", args, "technical team"),
+    limit: readIntFlag("--limit", args, 3),
     live: args.includes("--live")
-  });
+  };
+
+  const briefing = await generateBriefing(request);
 
   console.log(`# Mode: ${briefing.mode}`);
   console.log(`# Brief IDs: ${briefing.briefIds.join(", ") || "none"}`);
+  console.log(`# Duration: ${briefing.durationMs}ms`);
   console.log("");
   console.log(briefing.markdown);
+
+  if (args.includes("--trace")) {
+    console.log("");
+    console.log("## Trace");
+    console.log(JSON.stringify(briefing.trace, null, 2));
+  }
+
+  if (args.includes("--save-run")) {
+    const outputPath = await writeBriefingRun(request, briefing);
+    console.log("");
+    console.log(`# Saved run: ${outputPath}`);
+  }
 }
 
 async function runCatalog(): Promise<void> {

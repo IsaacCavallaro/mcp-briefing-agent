@@ -18,7 +18,19 @@ import type {
 import { BriefingMcpClient } from "../mcp/client.js";
 import { createModelClient, resolveProviderConfig } from "./provider.js";
 import { validateBriefingRequest } from "./request.js";
-import type { BriefDocument, BriefingRequest, BriefingResult } from "./types.js";
+import type { BriefDocument, BriefingRequest, BriefingResult, BriefingTraceEvent } from "./types.js";
+
+function trace(
+  events: BriefingTraceEvent[],
+  name: string,
+  attributes: Record<string, string | number | boolean | null> = {}
+): void {
+  events.push({
+    timestamp: new Date().toISOString(),
+    name,
+    attributes
+  });
+}
 
 function briefingInstructions(request: BriefingRequest): string {
   return [
@@ -96,13 +108,27 @@ ${nextMoves}
 ${sourceNotes}`;
 }
 
-async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpClient): Promise<BriefingResult> {
+async function runLiveBriefing(
+  request: BriefingRequest,
+  mcpClient: BriefingMcpClient,
+  traceEvents: BriefingTraceEvent[]
+): Promise<Omit<BriefingResult, "durationMs" | "trace">> {
   if (!request.live) {
+    trace(traceEvents, "briefing.mock_mode.enabled", {
+      topic: request.topic,
+      audience: request.audience,
+      limit: request.limit
+    });
     const primaryDocuments = await mcpClient.searchBriefs(request.topic, request.limit);
     const documents =
       primaryDocuments.length > 0
         ? primaryDocuments
         : await mcpClient.searchBriefs("agents tools evals protocol", request.limit);
+    trace(traceEvents, "mcp.search_briefs.completed", {
+      query: primaryDocuments.length > 0 ? request.topic : "agents tools evals protocol",
+      resultCount: documents.length,
+      fallbackUsed: primaryDocuments.length === 0
+    });
 
     return {
       mode: "mock",
@@ -114,11 +140,22 @@ async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpC
   const providerConfig = resolveProviderConfig();
   const client = createModelClient(providerConfig);
   const usedBriefIds = new Set<string>();
+  trace(traceEvents, "model.provider.resolved", {
+    provider: providerConfig.provider,
+    model: providerConfig.model,
+    apiStyle: providerConfig.apiStyle,
+    hasBaseUrl: Boolean(providerConfig.baseURL)
+  });
 
   const toolHandlers = {
     search_library: async (args: { query: string; limit?: number }) => {
       const results = await mcpClient.searchBriefs(args.query, args.limit ?? request.limit);
       results.forEach((document) => usedBriefIds.add(document.id));
+      trace(traceEvents, "mcp.search_library.completed", {
+        query: args.query,
+        limit: args.limit ?? request.limit,
+        resultCount: results.length
+      });
       return results;
     },
     read_briefing: async (args: { id: string }) => {
@@ -126,6 +163,10 @@ async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpC
       if (result) {
         usedBriefIds.add(result.id);
       }
+      trace(traceEvents, "mcp.read_briefing.completed", {
+        id: args.id,
+        found: Boolean(result)
+      });
       return result ?? { error: `No briefing found for id "${args.id}"` };
     }
   };
@@ -168,7 +209,8 @@ async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpC
       model: providerConfig.model,
       request,
       toolHandlers,
-      usedBriefIds
+      usedBriefIds,
+      traceEvents
     });
   }
 
@@ -178,7 +220,8 @@ async function runLiveBriefing(request: BriefingRequest, mcpClient: BriefingMcpC
     request,
     toolHandlers,
     tools: responseTools,
-    usedBriefIds
+    usedBriefIds,
+    traceEvents
   });
 }
 
@@ -194,6 +237,7 @@ interface ResponsesBriefingArgs {
   toolHandlers: ToolHandlers;
   tools: FunctionTool[];
   usedBriefIds: Set<string>;
+  traceEvents: BriefingTraceEvent[];
 }
 
 async function runResponsesBriefing({
@@ -202,8 +246,13 @@ async function runResponsesBriefing({
   request,
   toolHandlers,
   tools,
-  usedBriefIds
-}: ResponsesBriefingArgs): Promise<BriefingResult> {
+  usedBriefIds,
+  traceEvents
+}: ResponsesBriefingArgs): Promise<Omit<BriefingResult, "durationMs" | "trace">> {
+  trace(traceEvents, "model.responses.create.started", {
+    model,
+    toolCount: tools.length
+  });
   let response: Response = await client.responses.create({
     model,
     reasoning: { effort: "medium" },
@@ -216,6 +265,10 @@ async function runResponsesBriefing({
     const functionCalls = (response.output ?? []).filter(
       (item): item is ResponseFunctionToolCall => item.type === "function_call"
     );
+    trace(traceEvents, "model.responses.output.received", {
+      responseId: response.id,
+      functionCallCount: functionCalls.length
+    });
 
     if (functionCalls.length === 0) {
       const markdown = extractText(response);
@@ -234,6 +287,9 @@ async function runResponsesBriefing({
     const toolOutputs: ResponseInputItem[] = [];
 
     for (const toolCall of functionCalls) {
+      trace(traceEvents, "model.tool_call.received", {
+        toolName: toolCall.name
+      });
       const parsedArguments = JSON.parse(toolCall.arguments || "{}") as Record<string, unknown>;
       const result =
         toolCall.name === "search_library"
@@ -270,6 +326,7 @@ interface ChatBriefingArgs {
   request: BriefingRequest;
   toolHandlers: ToolHandlers;
   usedBriefIds: Set<string>;
+  traceEvents: BriefingTraceEvent[];
 }
 
 const TOOL_REQUIRED_REMINDER =
@@ -325,8 +382,9 @@ async function runChatCompletionBriefing({
   model,
   request,
   toolHandlers,
-  usedBriefIds
-}: ChatBriefingArgs): Promise<BriefingResult> {
+  usedBriefIds,
+  traceEvents
+}: ChatBriefingArgs): Promise<Omit<BriefingResult, "durationMs" | "trace">> {
   const tools = buildChatTools();
   const messages: ChatCompletionMessageParam[] = [
     { role: "system", content: briefingInstructions(request) },
@@ -343,7 +401,8 @@ async function runChatCompletionBriefing({
     tools,
     request,
     toolHandlers,
-    usedBriefIds
+    usedBriefIds,
+    traceEvents
   });
 }
 
@@ -355,6 +414,7 @@ interface ChatBriefingLoopArgs {
   request: BriefingRequest;
   toolHandlers: ToolHandlers;
   usedBriefIds: Set<string>;
+  traceEvents?: BriefingTraceEvent[];
 }
 
 export async function runChatCompletionBriefingLoop({
@@ -364,11 +424,17 @@ export async function runChatCompletionBriefingLoop({
   tools,
   request,
   toolHandlers,
-  usedBriefIds
+  usedBriefIds,
+  traceEvents = []
 }: ChatBriefingLoopArgs): Promise<BriefingResult> {
   let requiresInitialToolCall = true;
 
   while (true) {
+    trace(traceEvents, "model.chat.create.started", {
+      model,
+      toolChoice: requiresInitialToolCall ? "required" : "auto",
+      messageCount: messages.length
+    });
     const completion: ChatCompletion = await client.create({
       model,
       messages,
@@ -391,6 +457,9 @@ export async function runChatCompletionBriefingLoop({
 
     if (!message.tool_calls || message.tool_calls.length === 0) {
       if (usedBriefIds.size === 0) {
+        trace(traceEvents, "model.chat.tool_required_retry", {
+          model
+        });
         messages.push({
           role: "user",
           content: TOOL_REQUIRED_REMINDER
@@ -408,7 +477,9 @@ export async function runChatCompletionBriefingLoop({
       return {
         mode: "live",
         markdown,
-        briefIds: [...usedBriefIds]
+        briefIds: [...usedBriefIds],
+        durationMs: 0,
+        trace: traceEvents
       };
     }
 
@@ -419,6 +490,9 @@ export async function runChatCompletionBriefingLoop({
         continue;
       }
 
+      trace(traceEvents, "model.tool_call.received", {
+        toolName: toolCall.function.name
+      });
       const parsedArguments = JSON.parse(toolCall.function.arguments || "{}") as Record<string, unknown>;
       const result =
         toolCall.function.name === "search_library"
@@ -444,13 +518,32 @@ export async function runChatCompletionBriefingLoop({
 }
 
 export async function generateBriefing(request: BriefingRequest): Promise<BriefingResult> {
+  const startedAt = Date.now();
+  const traceEvents: BriefingTraceEvent[] = [];
   const validRequest = validateBriefingRequest(request);
   const mcpClient = new BriefingMcpClient();
+  trace(traceEvents, "briefing.request.validated", {
+    topic: validRequest.topic,
+    audience: validRequest.audience,
+    limit: validRequest.limit,
+    live: validRequest.live
+  });
   await mcpClient.connect();
+  trace(traceEvents, "mcp.client.connected");
 
   try {
-    return await runLiveBriefing(validRequest, mcpClient);
+    const result = await runLiveBriefing(validRequest, mcpClient, traceEvents);
+    trace(traceEvents, "briefing.completed", {
+      mode: result.mode,
+      briefCount: result.briefIds.length
+    });
+    return {
+      ...result,
+      durationMs: Date.now() - startedAt,
+      trace: traceEvents
+    };
   } finally {
     await mcpClient.close();
+    trace(traceEvents, "mcp.client.closed");
   }
 }

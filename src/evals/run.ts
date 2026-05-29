@@ -1,10 +1,18 @@
 import { generateBriefing } from "../briefing/agent.js";
 import { hasLiveModelConfig } from "../briefing/provider.js";
 import type { EvalResult } from "../briefing/types.js";
+import { writeEvalReport } from "../observability/run-history.js";
 import { scenarios } from "./dataset.js";
 import { scoreScenario } from "./scoring.js";
 
+function readFlag(flag: string, args: string[], fallback: string): string {
+  const index = args.indexOf(flag);
+  return index >= 0 && args[index + 1] ? args[index + 1] : fallback;
+}
+
 async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const liveMode = hasLiveModelConfig();
   const results: EvalResult[] = [];
 
   for (const scenario of scenarios) {
@@ -12,7 +20,7 @@ async function main(): Promise<void> {
       topic: scenario.topic,
       audience: scenario.audience,
       limit: 3,
-      live: hasLiveModelConfig()
+      live: liveMode
     });
 
     const score = scoreScenario(briefing.markdown, scenario.expectedTerms);
@@ -26,8 +34,12 @@ async function main(): Promise<void> {
   const averageScore = Math.round(
     results.reduce((sum, result) => sum + result.score, 0) / results.length
   );
+  const summary = { passed, total: results.length, averageScore, liveMode };
+  const reportPath = args.includes("--write-report")
+    ? await writeEvalReport(summary, results, readFlag("--output-dir", args, "reports/evals"))
+    : undefined;
 
-  console.log(JSON.stringify({ passed, total: results.length, averageScore, results }, null, 2));
+  console.log(JSON.stringify({ ...summary, reportPath, results }, null, 2));
 }
 
 await main();

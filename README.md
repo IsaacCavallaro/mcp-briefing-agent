@@ -132,13 +132,64 @@ The second option is useful for local or free models exposed through an OpenAI-c
 
 ```bash
 npm run brief -- --topic "Why evals matter for agent apps"
+npm run brief -- --topic "Remote MCP servers" --save-run --trace
 npm run catalog
 npm run mcp
 npm run eval
+npm run eval:report
 npm run test
 npm run build
+npm run serve
 npm start         # run the compiled CLI after build
 ```
+
+## Local Service
+
+The repo includes a small standard-library HTTP wrapper so the agent can be exercised like a service without deploying anything or creating cloud resources.
+
+```bash
+npm run serve
+```
+
+Endpoints:
+
+- `GET /health`
+- `GET /ready`
+- `GET /catalog`
+- `GET /metrics`
+- `POST /brief`
+
+Example request:
+
+```bash
+curl --silent http://127.0.0.1:8787/brief \
+  --header "content-type: application/json" \
+  --data '{"topic":"Why evals matter for agent apps","audience":"engineering manager","saveRun":true}'
+```
+
+By default, `POST /brief` uses mock mode unless the request explicitly sets `"live": true`. That keeps the service safe to run for portfolio review without paid model calls.
+
+## Local Production Shape
+
+This project is intentionally runnable without paid accounts:
+
+- Dockerfile for a built Node runtime
+- Docker Compose for the HTTP service plus local Prometheus
+- Prometheus text metrics at `/metrics`
+- JSON run artifacts under `runs/` when `--save-run`, `"saveRun": true`, or `BRIEFING_SAVE_RUNS=1` is used
+- eval reports under `reports/evals/latest.json` when `npm run eval:report` is used
+- architecture, runbook, tradeoff, and threat-model notes under [`docs/`](./docs)
+
+Run the local stack:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- agent service: `http://127.0.0.1:8787`
+- Prometheus: `http://127.0.0.1:9090`
 
 ## Example Output Shape
 
@@ -156,6 +207,6 @@ That makes it easy to score in the eval script and compare outputs across runs.
 ## Next Extensions
 
 - swap the in-memory briefing library for Notion, GitHub, or Jira ingestion
-- add trace logging and saved runs
+- add durable run storage behind the current JSON artifact boundary
 - add a second evaluator for citation quality and actionability
 - expose the MCP server remotely instead of over stdio

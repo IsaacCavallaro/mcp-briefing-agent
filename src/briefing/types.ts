@@ -16,10 +16,18 @@ export interface BriefingRequest {
   live: boolean;
 }
 
+export interface BriefingTraceEvent {
+  timestamp: string;
+  name: string;
+  attributes: Record<string, string | number | boolean | null>;
+}
+
 export interface BriefingResult {
   mode: "live" | "mock";
   markdown: string;
   briefIds: string[];
+  durationMs: number;
+  trace: BriefingTraceEvent[];
 }
 
 export interface EvalScenario {

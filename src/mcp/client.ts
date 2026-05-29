@@ -32,8 +32,8 @@ export function resolveServerCommand(
   }
 
   return {
-    command: process.platform === "win32" ? "npx.cmd" : "npx",
-    args: ["tsx", path.join(root, "src", "mcp", "server.ts")]
+    command: process.execPath,
+    args: ["--import", "tsx", path.join(root, "src", "mcp", "server.ts")]
   };
 }
 
