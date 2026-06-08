@@ -10,6 +10,8 @@ This repo is a portfolio-scale production simulation. It intentionally avoids pa
 - eval runner
 - HTTP service wrapper
 - Docker runtime
+- Kubernetes manifests and local Kustomize overlay
+- Terraform/OpenTofu validation for local and reference platform shapes
 - Prometheus-compatible metrics
 - saved run and eval artifacts
 
@@ -19,6 +21,7 @@ This repo is a portfolio-scale production simulation. It intentionally avoids pa
 - the briefing library is in-memory
 - Prometheus is local only
 - live model calls are opt-in
+- the AWS platform shape is reference-only and creates no resources
 
 ## Cloud Mapping
 

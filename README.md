@@ -51,6 +51,9 @@ src/
     server.ts       # Local MCP server exposing tools/resources
   cli.ts            # CLI entrypoint
 docs/
+platform/
+  k8s/              # Base and local Kubernetes manifests
+  terraform/        # Provider-free local and AWS reference IaC
 ```
 
 ## Quickstart
@@ -175,6 +178,8 @@ This project is intentionally runnable without paid accounts:
 
 - Dockerfile for a built Node runtime
 - Docker Compose for the HTTP service plus local Prometheus
+- Kubernetes manifests with local Kustomize overlay, health probes, metrics annotations, resource limits, and rollback path
+- Terraform/OpenTofu validation for local and reference platform shapes without cloud credentials
 - Prometheus text metrics at `/metrics`
 - JSON run artifacts under `runs/` when `--save-run`, `"saveRun": true`, or `BRIEFING_SAVE_RUNS=1` is used
 - eval reports under `reports/evals/latest.json` when `npm run eval:report` is used
@@ -190,6 +195,45 @@ Then open:
 
 - agent service: `http://127.0.0.1:8787`
 - Prometheus: `http://127.0.0.1:9090`
+
+## Platform Engineering Demo
+
+The repo includes a no-cost platform package that demonstrates production-shaped deployment practices without requiring AWS, GCP, Azure, a paid registry, or a managed database.
+
+Key docs:
+
+- [Platform architecture](./docs/platform-architecture.md)
+- [Deployment runbook](./docs/deployment-runbook.md)
+- [No-cost cloud strategy](./docs/no-cost-cloud-strategy.md)
+
+Validate the platform artifacts:
+
+```bash
+make platform-validate
+```
+
+Render and validate the local Kubernetes overlay without a cluster:
+
+```bash
+make k8s-render
+make k8s-validate
+```
+
+If a local cluster is running, check server-side admission without applying:
+
+```bash
+make k8s-dry-run-local
+```
+
+Run in a local Kubernetes cluster:
+
+```bash
+make k8s-apply-local
+make k8s-port-forward
+make k8s-smoke
+```
+
+The local overlay uses `mcp-briefing-agent:local` with `imagePullPolicy: Never`, so it does not pull from or push to a remote registry. If you use kind, load the built image with `kind load docker-image mcp-briefing-agent:local` before applying the overlay.
 
 ## Example Output Shape
 

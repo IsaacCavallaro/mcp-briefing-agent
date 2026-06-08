@@ -19,3 +19,29 @@ jobs:
       - run: npm run build
       - run: npm run test
       - run: npm run eval
+
+  platform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.33.3
+      - uses: opentofu/setup-opentofu@v1
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl kustomize platform/k8s/local > /tmp/mcp-briefing-agent-k8s.yaml
+          test -s /tmp/mcp-briefing-agent-k8s.yaml
+          grep -q "kind: Deployment" /tmp/mcp-briefing-agent-k8s.yaml
+          grep -q "kind: Service" /tmp/mcp-briefing-agent-k8s.yaml
+          grep -q "kind: ConfigMap" /tmp/mcp-briefing-agent-k8s.yaml
+      - name: Check Terraform/OpenTofu formatting
+        run: tofu fmt -check -recursive platform/terraform
+      - name: Validate local Terraform/OpenTofu
+        run: |
+          tofu -chdir=platform/terraform/local init -backend=false
+          tofu -chdir=platform/terraform/local validate
+      - name: Validate AWS reference Terraform/OpenTofu
+        run: |
+          tofu -chdir=platform/terraform/aws-reference init -backend=false
+          tofu -chdir=platform/terraform/aws-reference validate

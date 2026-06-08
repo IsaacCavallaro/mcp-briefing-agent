@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mcp-briefing-agent
+  labels:
+    app.kubernetes.io/name: mcp-briefing-agent
+    app.kubernetes.io/component: namespace

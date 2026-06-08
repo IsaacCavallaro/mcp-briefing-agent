@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+images:
+  - name: ghcr.io/isaaccavallaro/mcp-briefing-agent
+    newName: mcp-briefing-agent
+    newTag: local
+patches:
+  - target:
+      kind: Deployment
+      name: mcp-briefing-agent
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mcp-briefing-agent
+      spec:
+        template:
+          spec:
+            containers:
+              - name: agent
+                imagePullPolicy: Never

@@ -37,6 +37,21 @@ docker compose up --build
 
 The agent runs on `http://127.0.0.1:8787`. Prometheus runs on `http://127.0.0.1:9090`.
 
+## Platform Runbook
+
+The no-cost Kubernetes and Terraform/OpenTofu platform path is documented in [`deployment-runbook.md`](./deployment-runbook.md).
+
+Useful local commands:
+
+```bash
+make platform-validate
+make k8s-apply-local
+make k8s-port-forward
+make k8s-smoke
+make k8s-rollback
+make k8s-delete-local
+```
+
 ## Common Failures
 
 `Live mode with MODEL_PROVIDER=openai requires MODEL_API_KEY or OPENAI_API_KEY.`

@@ -40,3 +40,14 @@ Mock mode is the default unless the CLI uses `--live` or the HTTP request sets `
 Each briefing result includes an in-memory trace with request validation, MCP connection, search/read calls, model tool calls, and completion events. The HTTP service exposes Prometheus text metrics at `/metrics`.
 
 Run artifacts can be saved locally as JSON under `runs/`. Eval reports can be saved under `reports/evals/latest.json`.
+
+## Platform Shape
+
+The repo includes a no-cost platform layer under `platform/`:
+
+- Docker Compose runs the HTTP service plus local Prometheus.
+- Kubernetes manifests define the service, deployment, probes, resource limits, metrics annotations, and local run storage.
+- The local Kustomize overlay runs the locally built image without a remote registry.
+- Terraform/OpenTofu files validate local and reference platform shapes without cloud providers or credentials.
+
+See [`platform-architecture.md`](./platform-architecture.md) and [`deployment-runbook.md`](./deployment-runbook.md) for the deployment view.

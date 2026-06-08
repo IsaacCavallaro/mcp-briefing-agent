@@ -4,3 +4,5 @@ dist
 .DS_Store
 runs
 reports/evals/*.json
+platform/terraform/**/.terraform/
+platform/terraform/**/.terraform.lock.hcl
