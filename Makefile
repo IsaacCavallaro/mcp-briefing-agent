@@ -1,7 +1,7 @@
 TF_BIN := $(shell command -v tofu 2>/dev/null || command -v terraform 2>/dev/null || true)
 K8S_RENDERED := /tmp/mcp-briefing-agent-k8s.yaml
 
-.PHONY: ci check build test eval eval-report serve docker-up docker-down smoke platform-validate k8s-render k8s-validate k8s-dry-run-local k8s-build-image k8s-apply-local k8s-delete-local k8s-port-forward k8s-smoke k8s-logs k8s-rollback tf-fmt tf-check tf-validate
+.PHONY: ci check build test eval eval-report serve docker-up docker-down smoke postgres-runs platform-validate k8s-render k8s-validate k8s-dry-run-local k8s-build-image k8s-apply-local k8s-delete-local k8s-port-forward k8s-smoke k8s-logs k8s-rollback tf-fmt tf-check tf-validate
 
 ci:
 	npm run ci
@@ -33,6 +33,9 @@ docker-down:
 smoke:
 	curl --fail --silent http://127.0.0.1:8787/health
 	curl --fail --silent http://127.0.0.1:8787/ready
+
+postgres-runs:
+	docker compose exec postgres psql -U briefing_agent -d briefing_agent -c "select id, mode, topic, duration_ms, created_at from briefing_runs order by created_at desc limit 5;"
 
 platform-validate: k8s-validate tf-check tf-validate
 

@@ -177,11 +177,12 @@ By default, `POST /brief` uses mock mode unless the request explicitly sets `"li
 This project is intentionally runnable without paid accounts:
 
 - Dockerfile for a built Node runtime
-- Docker Compose for the HTTP service plus local Prometheus
+- Docker Compose for the HTTP service, local Postgres run history, and local Prometheus
 - Kubernetes manifests with local Kustomize overlay, health probes, metrics annotations, resource limits, and rollback path
 - Terraform/OpenTofu validation for local and reference platform shapes without cloud credentials
 - Prometheus text metrics at `/metrics`
 - JSON run artifacts under `runs/` when `--save-run`, `"saveRun": true`, or `BRIEFING_SAVE_RUNS=1` is used
+- optional Postgres-backed run history with queryable metadata and JSONB request/result/trace payloads
 - eval reports under `reports/evals/latest.json` when `npm run eval:report` is used
 - architecture, runbook, tradeoff, and threat-model notes under [`docs/`](./docs)
 
@@ -194,7 +195,10 @@ docker compose up --build
 Then open:
 
 - agent service: `http://127.0.0.1:8787`
+- Postgres: `postgres://briefing_agent:briefing_agent@127.0.0.1:5432/briefing_agent`
 - Prometheus: `http://127.0.0.1:9090`
+
+See [run history storage](./docs/run-history-storage.md) for the Postgres schema, local query examples, and production mapping.
 
 ## Platform Engineering Demo
 

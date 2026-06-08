@@ -37,9 +37,10 @@ async function runBrief(args: string[]): Promise<void> {
   }
 
   if (args.includes("--save-run")) {
-    const outputPath = await writeBriefingRun(request, briefing);
+    const run = await writeBriefingRun(request, briefing);
     console.log("");
-    console.log(`# Saved run: ${outputPath}`);
+    console.log(`# Saved run: ${run.reference}`);
+    console.log(`# Run store: ${run.store}`);
   }
 }
 

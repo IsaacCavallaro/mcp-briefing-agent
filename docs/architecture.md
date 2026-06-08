@@ -41,6 +41,12 @@ Each briefing result includes an in-memory trace with request validation, MCP co
 
 Run artifacts can be saved locally as JSON under `runs/`. Eval reports can be saved under `reports/evals/latest.json`.
 
+## Run History
+
+Saved briefing runs use filesystem storage by default and can switch to Postgres with `BRIEFING_RUN_STORE=postgres` and `DATABASE_URL`.
+
+Postgres stores queryable metadata (`topic`, `audience`, `mode`, `brief_ids`, `duration_ms`) plus JSONB copies of the request, result, and trace. This keeps local demos simple while making the production data boundary explicit.
+
 ## Platform Shape
 
 The repo includes a no-cost platform layer under `platform/`:

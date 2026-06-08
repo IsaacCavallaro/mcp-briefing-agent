@@ -14,10 +14,11 @@ This repo is a portfolio-scale production simulation. It intentionally avoids pa
 - Terraform/OpenTofu validation for local and reference platform shapes
 - Prometheus-compatible metrics
 - saved run and eval artifacts
+- optional Postgres-backed briefing run history
 
 ## What Is Simulated
 
-- durable storage is local JSON artifacts, not a managed database
+- durable storage is local JSON artifacts or local Postgres, not a managed database
 - the briefing library is in-memory
 - Prometheus is local only
 - live model calls are opt-in

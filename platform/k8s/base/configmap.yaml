@@ -9,4 +9,5 @@ data:
   NODE_ENV: production
   PORT: "8787"
   BRIEFING_SAVE_RUNS: "1"
+  BRIEFING_RUN_STORE: filesystem
   BRIEFING_RUN_DIR: /app/runs

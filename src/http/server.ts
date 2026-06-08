@@ -59,7 +59,7 @@ async function handleBrief(request: IncomingMessage, response: ServerResponse): 
   const body = (await readJsonBody(request)) as BriefRequestBody;
   const briefingRequest = briefingRequestFrom(body);
   const result = await generateBriefing(briefingRequest);
-  const runPath =
+  const run =
     body.saveRun === true || process.env.BRIEFING_SAVE_RUNS === "1"
       ? await writeBriefingRun(briefingRequest, result)
       : undefined;
@@ -73,7 +73,9 @@ async function handleBrief(request: IncomingMessage, response: ServerResponse): 
 
   sendJson(response, 200, {
     ...result,
-    runPath
+    runId: run?.id,
+    runStore: run?.store,
+    runPath: run?.path ?? run?.reference
   });
 }
 

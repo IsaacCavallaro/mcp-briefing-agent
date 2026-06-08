@@ -35,7 +35,17 @@ curl --silent http://127.0.0.1:8787/brief \
 docker compose up --build
 ```
 
-The agent runs on `http://127.0.0.1:8787`. Prometheus runs on `http://127.0.0.1:9090`.
+The agent runs on `http://127.0.0.1:8787`. Postgres runs on `127.0.0.1:5432`. Prometheus runs on `http://127.0.0.1:9090`.
+
+Docker Compose configures the agent with `BRIEFING_RUN_STORE=postgres`, so saved runs are stored in the local `briefing_runs` table.
+
+Inspect recent runs:
+
+```bash
+make postgres-runs
+```
+
+For storage details, see [`run-history-storage.md`](./run-history-storage.md).
 
 ## Platform Runbook
 

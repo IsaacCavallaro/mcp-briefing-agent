@@ -13,6 +13,7 @@ locals {
     NODE_ENV           = "production"
     PORT               = tostring(var.container_port)
     BRIEFING_SAVE_RUNS = "1"
+    BRIEFING_RUN_STORE = "filesystem"
     BRIEFING_RUN_DIR   = "/app/runs"
   }
 
